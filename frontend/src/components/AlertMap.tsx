@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
+import { dictionaries, type Language } from "../i18n";
 import type { GeoEvent } from "../types/events";
 
 const markerColors: Record<GeoEvent["category"], string> = {
@@ -12,10 +13,12 @@ const markerColors: Record<GeoEvent["category"], string> = {
 interface AlertMapProps {
   events: GeoEvent[];
   selectedId?: string;
+  language: Language;
   onSelect: (event: GeoEvent) => void;
 }
 
-export default function AlertMap({ events, selectedId, onSelect }: AlertMapProps) {
+export default function AlertMap({ events, selectedId, language, onSelect }: AlertMapProps) {
+  const t = dictionaries[language];
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
@@ -50,7 +53,7 @@ export default function AlertMap({ events, selectedId, onSelect }: AlertMapProps
       element.className = "marker-shell";
       element.style.background = markerColors[event.category];
       element.dataset.active = String(event.id === selectedId);
-      element.setAttribute("aria-label", `Ver ${event.title}`);
+      element.setAttribute("aria-label", t.viewEvent(event.title));
       element.addEventListener("click", () => onSelect(event));
 
       return new maplibregl.Marker({ element, anchor: "bottom" })
@@ -59,7 +62,7 @@ export default function AlertMap({ events, selectedId, onSelect }: AlertMapProps
     });
 
     return () => markers.forEach((marker) => marker.remove());
-  }, [events, onSelect, selectedId]);
+  }, [events, onSelect, selectedId, t]);
 
   useEffect(() => {
     const selected = events.find((event) => event.id === selectedId);
@@ -71,5 +74,5 @@ export default function AlertMap({ events, selectedId, onSelect }: AlertMapProps
     });
   }, [events, selectedId]);
 
-  return <div ref={containerRef} className="h-full w-full bg-[#0a1411]" aria-label="Mapa de eventos naturais" />;
+  return <div ref={containerRef} className="h-full w-full bg-[#0a1411]" aria-label={t.mapLabel} />;
 }

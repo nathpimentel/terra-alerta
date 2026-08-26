@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
@@ -15,26 +15,25 @@ import {
 } from "lucide-react";
 import AlertMap from "../components/AlertMap";
 import { previewEvents } from "../data/previewEvents";
+import {
+  dictionaries,
+  languages,
+  readStoredLanguage,
+  relativeTime,
+  storeLanguage,
+  type Language,
+} from "../i18n";
 import { getEvents } from "../services/eventsApi";
 import type { EventCategory, GeoEvent } from "../types/events";
 
-const categoryMeta: Record<EventCategory, { label: string; icon: typeof Activity; color: string }> = {
-  earthquake: { label: "Terremotos", icon: Waves, color: "#f0a94b" },
-  wildfire: { label: "Incêndios", icon: Flame, color: "#ef665d" },
-  storm: { label: "Tempestades", icon: Wind, color: "#62a8ff" },
-  volcano: { label: "Vulcões", icon: Activity, color: "#c47bff" },
+const categoryMeta: Record<EventCategory, { icon: typeof Activity; color: string }> = {
+  earthquake: { icon: Waves, color: "#f0a94b" },
+  wildfire: { icon: Flame, color: "#ef665d" },
+  storm: { icon: Wind, color: "#62a8ff" },
+  volcano: { icon: Activity, color: "#c47bff" },
 };
 
-const severityLabel: Record<GeoEvent["severity"], string> = {
-  low: "Baixa",
-  moderate: "Moderada",
-  high: "Alta",
-};
-
-const relativeTime = (date: string) => {
-  const hours = Math.max(1, Math.round((Date.now() - new Date(date).getTime()) / 3_600_000));
-  return hours < 24 ? `há ${hours}h` : `há ${Math.round(hours / 24)}d`;
-};
+const categoryOrder: EventCategory[] = ["earthquake", "wildfire", "storm", "volcano"];
 
 export default function DashboardPage() {
   const [events, setEvents] = useState<GeoEvent[]>(previewEvents);
@@ -48,17 +47,22 @@ export default function DashboardPage() {
     "volcano",
   ]);
   const [selected, setSelected] = useState<GeoEvent | null>(previewEvents[1]);
+  const [language, setLanguage] = useState<Language>(readStoredLanguage);
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  const t = dictionaries[language];
 
   const filteredEvents = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+    const normalizedQuery = query.trim().toLocaleLowerCase(t.locale);
     return events.filter((event) => {
       const matchesCategory = activeCategories.includes(event.category);
       const matchesQuery =
         !normalizedQuery ||
-        `${event.title} ${event.location}`.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
+        `${event.title} ${event.location}`.toLocaleLowerCase(t.locale).includes(normalizedQuery);
       return matchesCategory && matchesQuery;
     });
-  }, [activeCategories, events, query]);
+  }, [activeCategories, events, query, t.locale]);
 
   const loadEvents = useCallback(async () => {
     setIsLoading(true);
@@ -80,6 +84,29 @@ export default function DashboardPage() {
     void loadEvents();
   }, [loadEvents]);
 
+  useEffect(() => {
+    document.documentElement.lang = t.htmlLang;
+    storeLanguage(language);
+  }, [language, t.htmlLang]);
+
+  useEffect(() => {
+    if (!isLanguageMenuOpen) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!languageMenuRef.current?.contains(event.target as Node)) setIsLanguageMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsLanguageMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isLanguageMenuOpen]);
+
   const toggleCategory = (category: EventCategory) => {
     setActiveCategories((current) =>
       current.includes(category)
@@ -100,7 +127,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-[17px] font-extrabold leading-none tracking-[-0.04em]">TerraAlerta</p>
-            <p className="mt-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-[.18em] text-[#71867b]">Monitoramento ambiental</p>
+            <p className="mt-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-[.18em] text-[#71867b]">{t.tagline}</p>
           </div>
         </div>
 
@@ -109,7 +136,7 @@ export default function DashboardPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar evento ou região"
+            placeholder={t.searchPlaceholder}
             className="w-full bg-transparent text-sm text-white outline-none placeholder:text-[#60736a]"
           />
           <span className="rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] text-[#64776e]">⌘ K</span>
@@ -118,18 +145,55 @@ export default function DashboardPage() {
         <div className="ml-auto flex min-w-[228px] items-center justify-end gap-3">
           <div className="hidden items-center gap-2 rounded-full border border-[#8ee6a8]/15 bg-[#8ee6a8]/[.07] px-3 py-1.5 sm:flex">
             <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#8ee6a8]" />
-            <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#a8e7b8]">Ao vivo</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#a8e7b8]">{t.live}</span>
           </div>
           <button
-            aria-label="Atualizar eventos"
+            aria-label={t.refresh}
             onClick={() => void loadEvents()}
             className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[.04] text-[#9caf9f] transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-safe:active:scale-95"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           </button>
-          <button className="hidden h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 text-xs font-semibold text-[#c5d1cb] transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 sm:flex">
-            PT <ChevronDown size={13} />
-          </button>
+          <div ref={languageMenuRef} className="relative hidden sm:block">
+            <button
+              aria-label={t.language}
+              aria-haspopup="listbox"
+              aria-expanded={isLanguageMenuOpen}
+              onClick={() => setIsLanguageMenuOpen((open) => !open)}
+              className="flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 text-xs font-semibold text-[#c5d1cb] transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0"
+            >
+              {languages.find((item) => item.code === language)?.label}
+              <ChevronDown
+                size={13}
+                className={`transition-transform duration-200 ${isLanguageMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {isLanguageMenuOpen && (
+              <ul
+                role="listbox"
+                aria-label={t.language}
+                className="panel-in absolute right-0 top-11 z-30 w-36 rounded-xl border border-white/10 bg-[#0c1713]/95 p-1 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-xl"
+              >
+                {languages.map((item) => (
+                  <li key={item.code} role="option" aria-selected={item.code === language}>
+                    <button
+                      onClick={() => {
+                        setLanguage(item.code);
+                        setIsLanguageMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-all duration-200 hover:bg-white/[.08] motion-safe:hover:translate-x-0.5 ${
+                        item.code === language ? "text-[#a9f4bd]" : "text-[#c5d1cb]"
+                      }`}
+                    >
+                      {item.name}
+                      <span className="text-[10px] font-extrabold tracking-wider text-[#71867b]">{item.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </header>
 
@@ -138,14 +202,15 @@ export default function DashboardPage() {
           <div className="border-b border-white/10 px-5 py-5">
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">Visão geral</p>
-                <p className="mt-1 text-2xl font-extrabold tracking-[-0.045em]">Eventos ativos</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">{t.overview}</p>
+                <p className="mt-1 text-2xl font-extrabold tracking-[-0.045em]">{t.activeEvents}</p>
               </div>
               <span className="rounded-lg bg-[#8ee6a8]/10 px-2.5 py-1 text-sm font-extrabold text-[#9ef0b4]">{filteredEvents.length}</span>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
-              {(Object.entries(categoryMeta) as [EventCategory, (typeof categoryMeta)[EventCategory]][]).map(([key, meta]) => {
+              {categoryOrder.map((key) => {
+                const meta = categoryMeta[key];
                 const Icon = meta.icon;
                 const active = activeCategories.includes(key);
                 return (
@@ -157,7 +222,7 @@ export default function DashboardPage() {
                     }`}
                   >
                     <Icon size={15} style={{ color: active ? meta.color : "currentColor" }} />
-                    {meta.label}
+                    {t.categories[key]}
                   </button>
                 );
               })}
@@ -165,9 +230,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center justify-between px-5 pb-3 pt-4">
-            <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">Mais recentes</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">{t.mostRecent}</p>
             <span className={`text-[9px] font-bold uppercase tracking-wider ${usingPreview ? "text-[#f0a94b]" : "text-[#91dca6]"}`}>
-              {usingPreview ? "Dados de demonstração" : "Fontes oficiais"}
+              {usingPreview ? t.previewData : t.officialSources}
             </span>
           </div>
 
@@ -193,7 +258,7 @@ export default function DashboardPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="truncate text-[12px] font-extrabold text-[#e1eae5]">{event.title}</p>
-                        <span className="shrink-0 text-[9px] font-semibold text-[#60736a]">{relativeTime(event.occurredAt)}</span>
+                        <span className="shrink-0 text-[9px] font-semibold text-[#60736a]">{relativeTime(event.occurredAt, t)}</span>
                       </div>
                       <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-[#788d82]">
                         <MapPin size={10} /> {event.location}
@@ -206,19 +271,19 @@ export default function DashboardPage() {
           </div>
 
           <div className="border-t border-white/10 px-5 py-3.5 text-[9px] leading-relaxed text-[#5e7167]">
-            Dados informativos. Em uma emergência, consulte as autoridades locais.
+            {t.disclaimer}
           </div>
         </aside>
 
         <section className="relative min-h-0 overflow-hidden">
-          <AlertMap events={filteredEvents} selectedId={selected?.id} onSelect={handleSelect} />
+          <AlertMap events={filteredEvents} selectedId={selected?.id} language={language} onSelect={handleSelect} />
 
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#07100d]/65 to-transparent" />
 
           <div className="absolute left-4 top-4 flex gap-2 lg:left-6 lg:top-5">
             <div className="rounded-xl border border-white/10 bg-[#0c1713]/90 px-3.5 py-2.5 shadow-2xl backdrop-blur-xl">
-              <p className="text-[9px] font-bold uppercase tracking-[.15em] text-[#71867b]">Janela monitorada</p>
-              <p className="mt-0.5 flex items-center gap-2 text-xs font-extrabold"><Clock3 size={13} className="text-[#8ee6a8]" /> Últimas 48 horas</p>
+              <p className="text-[9px] font-bold uppercase tracking-[.15em] text-[#71867b]">{t.monitoredWindow}</p>
+              <p className="mt-0.5 flex items-center gap-2 text-xs font-extrabold"><Clock3 size={13} className="text-[#8ee6a8]" /> {t.last48h}</p>
             </div>
           </div>
 
@@ -235,12 +300,12 @@ export default function DashboardPage() {
                     );
                   })()}
                   <div>
-                    <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#71867b]">{categoryMeta[selected.category].label.slice(0, -1)}</p>
+                    <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#71867b]">{t.categoriesSingular[selected.category]}</p>
                     <h2 className="mt-0.5 text-sm font-extrabold tracking-[-0.02em]">{selected.title}</h2>
                   </div>
                 </div>
                 <button
-                  aria-label="Fechar detalhes"
+                  aria-label={t.closeDetails}
                   onClick={() => setSelected(null)}
                   className="grid h-7 w-7 place-items-center rounded-lg text-[#6c8176] transition-all duration-200 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:rotate-90 motion-safe:active:scale-90"
                 >
@@ -255,21 +320,21 @@ export default function DashboardPage() {
 
               <div className="mt-4 grid grid-cols-3 gap-2 border-y border-white/10 py-3">
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">Intensidade</p>
-                  <p className="mt-1 text-xs font-extrabold capitalize text-[#dce7e1]">{selected.magnitude ? `M ${selected.magnitude}` : severityLabel[selected.severity]}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.intensity}</p>
+                  <p className="mt-1 text-xs font-extrabold capitalize text-[#dce7e1]">{selected.magnitude ? `M ${selected.magnitude}` : t.severity[selected.severity]}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">Atualizado</p>
-                  <p className="mt-1 text-xs font-extrabold text-[#dce7e1]">{relativeTime(selected.occurredAt)}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.updated}</p>
+                  <p className="mt-1 text-xs font-extrabold text-[#dce7e1]">{relativeTime(selected.occurredAt, t)}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">Fonte</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.source}</p>
                   <p className="mt-1 text-xs font-extrabold text-[#dce7e1]">{selected.source}</p>
                 </div>
               </div>
 
               <a href={selected.sourceUrl} target="_blank" rel="noreferrer" className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#a9f4bd] text-[11px] font-extrabold text-[#0a1711] transition-all duration-200 hover:bg-[#c3ffd1] hover:shadow-[0_10px_26px_rgba(169,244,189,.28)] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0">
-                Abrir fonte oficial <ExternalLink size={13} />
+                {t.openOfficialSource} <ExternalLink size={13} />
               </a>
             </div>
           )}
