@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root {
+  --ink: #e9f1ec;
+  --muted: #8da197;
+  --panel: #101a17;
+  --line: rgba(195, 220, 205, 0.12);
+  --accent: #8ee6a8;
+  --accent-strong: #b8ffc9;
+  --font-manrope: "Manrope", "Segoe UI", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  background: #07100d;
+  color: var(--ink);
+  font-family: var(--font-manrope), Arial, sans-serif;
+}
+
+button, input { font: inherit; }
+button { color: inherit; }
+::selection { background: rgba(142, 230, 168, 0.28); }
+.scrollbar-subtle { scrollbar-width: thin; scrollbar-color: #32473e transparent; }
+
+.marker-shell {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50% 50% 50% 12%;
+  transform: rotate(-45deg);
+  border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 7px 20px rgba(0,0,0,.45);
+  cursor: pointer;
+  transition: transform .18s ease, filter .18s ease;
+}
+
+.marker-shell::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+.marker-shell:hover,
+.marker-shell[data-active="true"] {
+  transform: rotate(-45deg) scale(1.25);
+  filter: brightness(1.15);
+}
+
+.maplibregl-ctrl-group {
+  background: #12201b !important;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 28px rgba(0,0,0,.28) !important;
+}
+
+.maplibregl-ctrl-group button { filter: invert(1) opacity(.72); }
+.maplibregl-ctrl-attrib { background: rgba(7,16,13,.76) !important; color: #9fb1a8; }
+.maplibregl-ctrl-attrib a { color: #c8d5cf !important; }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(142, 230, 168, .45); }
+  70% { box-shadow: 0 0 0 8px rgba(142, 230, 168, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(142, 230, 168, 0); }
+}
+
+.live-dot { animation: pulse-ring 2s infinite; }

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+.env
+.env.*
+!.env.example
