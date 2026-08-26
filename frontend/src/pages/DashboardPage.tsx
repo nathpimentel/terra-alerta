@@ -133,8 +133,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="grid h-[calc(100dvh-72px)] min-h-[588px] grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className="relative z-10 hidden flex-col border-r border-white/10 bg-[#0b1512] lg:flex">
+      <div className="grid h-[calc(100dvh-72px)] min-h-[588px] grid-rows-[minmax(0,1fr)] grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)]">
+        <aside className="relative z-10 hidden min-h-0 flex-col border-r border-white/10 bg-[#0b1512] lg:flex">
           <div className="border-b border-white/10 px-5 py-5">
             <div className="flex items-end justify-between">
               <div>
