@@ -57,35 +57,6 @@ O backend consulta as APIs públicas e normaliza as respostas em um único forma
 - [NASA EONET](https://eonet.gsfc.nasa.gov/) — incêndios florestais, tempestades severas e vulcões
 - [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) — terremotos
 
-## Executando o backend
-
-Requer o SDK do .NET 9.
-
-```bash
-dotnet run --project backend/backend.csproj
-```
-
-A API fica disponível em `http://localhost:5021` e o Swagger em `http://localhost:5021/swagger`.
-
-## Executando o frontend
-
-Requer Node.js 20 ou superior.
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-O frontend fica disponível em `http://localhost:3000` e o Vite encaminha as chamadas de `/api` para a API em `http://localhost:5021`.
-
-Para apontar para outra URL de API, copie `frontend/.env.example` para `frontend/.env.local` e ajuste `VITE_API_URL`. Sem a API no ar, o frontend consulta a NASA EONET e o USGS diretamente.
-
-## Endpoints
-
-- `GET /api/health` — verifica a disponibilidade da API
-- `GET /api/events` — retorna os eventos normalizados
-- `GET /api/events?category=earthquake` — filtra por categoria (`earthquake`, `wildfire`, `storm`, `volcano`)
 
 ## Aviso
 
