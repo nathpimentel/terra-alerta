@@ -13,6 +13,7 @@ Aplicação fullstack de monitoramento ambiental que reúne, em um mapa mundial 
 - Detalhe do evento com local, horário, severidade e link para a fonte oficial
 - Atualização manual dos dados
 - Dados de demonstração quando as fontes externas estão indisponíveis
+- Interface em português e inglês
 - Interface responsiva em tema escuro
 - API documentada com Swagger
 
@@ -44,6 +45,7 @@ terra-alerta/
 │   └── src/
 │       ├── components/
 │       ├── data/
+│       ├── i18n/
 │       ├── pages/
 │       ├── services/
 │       └── types/
@@ -52,10 +54,21 @@ terra-alerta/
 
 ## Fontes de dados
 
-O backend consulta as APIs públicas e normaliza as respostas em um único formato de evento geográfico:
+O backend consulta as APIs públicas abaixo e normaliza as respostas em um único formato de evento geográfico. Nenhuma delas exige chave de acesso.
 
-- [NASA EONET](https://eonet.gsfc.nasa.gov/) — incêndios florestais, tempestades severas e vulcões
-- [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/) — terremotos
+- **[NASA EONET v3](https://eonet.gsfc.nasa.gov/)** — *Earth Observatory Natural Event Tracker*. Incêndios florestais, tempestades severas e vulcões, em `eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=80`
+- **[USGS Earthquake Hazards Program](https://earthquake.usgs.gov/)** — terremotos de magnitude 4,5+ na última semana, em `earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson`
+
+Os endereços ficam em `backend/appsettings.json`. O frontend repete as mesmas chamadas em `frontend/src/services/externalSources.ts` para continuar funcionando quando a API está fora do ar.
+
+## Serviços externos
+
+A interface também depende de dois serviços que não são fontes de eventos:
+
+- **[Carto Basemaps](https://carto.com/basemaps/)** — tiles do mapa no estilo `dark-matter`, renderizados pelo MapLibre GL sobre dados do [OpenStreetMap](https://www.openstreetmap.org/)
+- **[Google Fonts](https://fonts.google.com/specimen/Manrope)** — a fonte Manrope
+
+Sem acesso a eles o app continua abrindo: os eventos caem para os dados de demonstração, mas o mapa fica sem o fundo.
 
 
 ## Aviso
