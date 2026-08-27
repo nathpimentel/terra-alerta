@@ -4,6 +4,21 @@ import { dictionaries, type Language } from "../i18n";
 import { mapStyles, type Theme } from "../theme";
 import { isOnEarth, type GeoEvent } from "../types/events";
 
+/* Por padrao o MapLibre repete o planeta infinitamente ao arrastar para os
+   lados. Estes limites prendem a navegacao a uma unica copia do mundo: da para
+   percorrer de um continente ao outro, mas o mapa encosta na borda em vez de
+   recomecar. 85 graus e onde a projecao de Mercator deixa de ser util.
+
+   A longitude para em 179.9 e nao em 180 de proposito: o MapLibre passa esses
+   limites por um wrap, e wrap(180) devolve -180. Com as duas pontas em 180 a
+   faixa colapsa para largura zero, o mapa divide a viewport por zero e nasce
+   travado no zoom maximo. Recuar um decimo de grau mantem o mundo inteiro
+   alcancavel e evita o colapso. */
+const worldBounds: maplibregl.LngLatBoundsLike = [
+  [-179.9, -85],
+  [179.9, 85],
+];
+
 const markerColors: Record<GeoEvent["category"], string> = {
   earthquake: "var(--quake)",
   wildfire: "var(--fire)",
@@ -35,7 +50,12 @@ export default function AlertMap({ events, selectedId, language, theme, onSelect
       style: styleRef.current,
       center: [-37, 4],
       zoom: 1.75,
-      minZoom: 1.2,
+      // Sem piso fixo: o proprio maxBounds impede de afastar alem do ponto em
+      // que o mundo preenche a largura, o que se ajusta ao tamanho da tela. Um
+      // minZoom fixo de 1.2 deixava 19% do globo inalcancavel neste layout.
+      minZoom: 0,
+      maxBounds: worldBounds,
+      renderWorldCopies: false,
       attributionControl: false,
     });
 
