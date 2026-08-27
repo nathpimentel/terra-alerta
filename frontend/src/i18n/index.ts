@@ -1,3 +1,4 @@
+import type { Theme } from "../theme";
 import type { EventCategory, GeoEvent } from "../types/events";
 
 export type Language = "pt" | "en";
@@ -15,14 +16,17 @@ export interface Dictionary {
   live: string;
   refresh: string;
   language: string;
+  theme: string;
+  themeNames: Record<Theme, string>;
+  activateTheme: (name: string) => string;
   overview: string;
   activeEvents: string;
   mostRecent: string;
   previewData: string;
   officialSources: string;
   disclaimer: string;
-  monitoredWindow: string;
-  last48h: string;
+  coverage: string;
+  coverageDetail: string;
   closeDetails: string;
   intensity: string;
   updated: string;
@@ -48,14 +52,17 @@ export const dictionaries: Record<Language, Dictionary> = {
     live: "Ao vivo",
     refresh: "Atualizar eventos",
     language: "Idioma",
+    theme: "Tema",
+    themeNames: { dark: "tema escuro", light: "tema claro" },
+    activateTheme: (name) => `Ativar ${name}`,
     overview: "Visão geral",
     activeEvents: "Eventos ativos",
     mostRecent: "Mais recentes",
     previewData: "Dados de demonstração",
     officialSources: "Fontes oficiais",
     disclaimer: "Dados informativos. Em uma emergência, consulte as autoridades locais.",
-    monitoredWindow: "Janela monitorada",
-    last48h: "Últimas 48 horas",
+    coverage: "Cobertura",
+    coverageDetail: "Ativos agora · sismos de 7 dias",
     closeDetails: "Fechar detalhes",
     intensity: "Intensidade",
     updated: "Atualizado",
@@ -87,14 +94,17 @@ export const dictionaries: Record<Language, Dictionary> = {
     live: "Live",
     refresh: "Refresh events",
     language: "Language",
+    theme: "Theme",
+    themeNames: { dark: "dark theme", light: "light theme" },
+    activateTheme: (name) => `Switch to ${name}`,
     overview: "Overview",
     activeEvents: "Active events",
     mostRecent: "Most recent",
     previewData: "Demo data",
     officialSources: "Official sources",
     disclaimer: "Informational data. In an emergency, contact your local authorities.",
-    monitoredWindow: "Monitored window",
-    last48h: "Last 48 hours",
+    coverage: "Coverage",
+    coverageDetail: "Active now · quakes from 7 days",
     closeDetails: "Close details",
     intensity: "Intensity",
     updated: "Updated",

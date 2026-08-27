@@ -7,8 +7,10 @@ import {
   Flame,
   Globe2,
   MapPin,
+  Moon,
   RefreshCw,
   Search,
+  Sun,
   Waves,
   Wind,
   X,
@@ -24,13 +26,24 @@ import {
   type Language,
 } from "../i18n";
 import { getEvents } from "../services/eventsApi";
+import {
+  applyTheme,
+  hasStoredTheme,
+  oppositeTheme,
+  readStoredTheme,
+  storeTheme,
+  watchSystemTheme,
+  type Theme,
+} from "../theme";
 import type { EventCategory, GeoEvent } from "../types/events";
 
-const categoryMeta: Record<EventCategory, { icon: typeof Activity; color: string }> = {
-  earthquake: { icon: Waves, color: "#f0a94b" },
-  wildfire: { icon: Flame, color: "#ef665d" },
-  storm: { icon: Wind, color: "#62a8ff" },
-  volcano: { icon: Activity, color: "#c47bff" },
+// Cor e tinta saem do tema corrente: no claro os mesmos matizes precisam ser
+// mais escuros para manter contraste sobre o painel branco.
+const categoryMeta: Record<EventCategory, { icon: typeof Activity; color: string; tint: string }> = {
+  earthquake: { icon: Waves, color: "var(--quake)", tint: "var(--quake-tint)" },
+  wildfire: { icon: Flame, color: "var(--fire)", tint: "var(--fire-tint)" },
+  storm: { icon: Wind, color: "var(--storm)", tint: "var(--storm-tint)" },
+  volcano: { icon: Activity, color: "var(--volcano)", tint: "var(--volcano-tint)" },
 };
 
 const categoryOrder: EventCategory[] = ["earthquake", "wildfire", "storm", "volcano"];
@@ -50,8 +63,12 @@ export default function DashboardPage() {
   const [language, setLanguage] = useState<Language>(readStoredLanguage);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState<Theme>(readStoredTheme);
+  const [followsSystem, setFollowsSystem] = useState(() => !hasStoredTheme());
 
   const t = dictionaries[language];
+  const nextTheme = oppositeTheme(theme);
+  const themeLabel = t.activateTheme(t.themeNames[nextTheme]);
 
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(t.locale);
@@ -90,6 +107,16 @@ export default function DashboardPage() {
   }, [language, t.htmlLang]);
 
   useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    // Enquanto nao houver escolha explicita, a interface acompanha o sistema.
+    if (!followsSystem) return;
+    return watchSystemTheme(setTheme);
+  }, [followsSystem]);
+
+  useEffect(() => {
     if (!isLanguageMenuOpen) return;
 
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -115,44 +142,58 @@ export default function DashboardPage() {
     );
   };
 
+  const switchTheme = () => {
+    setFollowsSystem(false);
+    setTheme(nextTheme);
+    storeTheme(nextTheme);
+  };
+
   const handleSelect = useCallback((event: GeoEvent) => setSelected(event), []);
 
   return (
-    <main className="h-dvh min-h-[660px] overflow-hidden bg-[#07100d] text-[#e9f1ec]">
-      <header className="relative z-20 flex h-[72px] items-center border-b border-white/10 bg-[#0b1512]/95 px-4 backdrop-blur-xl md:px-6">
+    <main className="h-dvh min-h-[660px] overflow-hidden bg-canvas text-ink">
+      <header className="relative z-20 flex h-[72px] items-center border-b border-line bg-panel/95 px-4 backdrop-blur-xl md:px-6">
         <div className="flex min-w-[228px] items-center gap-3">
-          <div className="relative grid h-9 w-9 place-items-center rounded-xl border border-[#8ee6a8]/30 bg-[#8ee6a8]/10">
-            <Globe2 size={20} strokeWidth={1.8} className="text-[#a9f4bd]" />
-            <span className="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-[#ff725f]" />
+          <div className="relative grid h-9 w-9 place-items-center rounded-xl border border-accent/30 bg-accent/10">
+            <Globe2 size={20} strokeWidth={1.8} className="text-accent-soft" />
+            <span className="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-alert" />
           </div>
           <div>
             <p className="text-[17px] font-extrabold leading-none tracking-[-0.04em]">TerraAlerta</p>
-            <p className="mt-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-[.18em] text-[#71867b]">{t.tagline}</p>
+            <p className="mt-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-[.18em] text-ink-faint">{t.tagline}</p>
           </div>
         </div>
 
-        <label className="mx-auto hidden h-10 w-full max-w-[470px] items-center gap-2.5 rounded-xl border border-white/10 bg-white/[.045] px-3.5 focus-within:border-[#8ee6a8]/50 lg:flex">
-          <Search size={16} className="text-[#778c82]" />
+        <label className="mx-auto hidden h-10 w-full max-w-[470px] items-center gap-2.5 rounded-xl border border-line bg-fill px-3.5 focus-within:border-accent/50 lg:flex">
+          <Search size={16} className="text-ink-ghost" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t.searchPlaceholder}
-            className="w-full bg-transparent text-sm text-white outline-none placeholder:text-[#60736a]"
+            className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-ghost"
           />
-          <span className="rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] text-[#64776e]">⌘ K</span>
+          <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-ink-ghost">&#8984; K</span>
         </label>
 
         <div className="ml-auto flex min-w-[228px] items-center justify-end gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-[#8ee6a8]/15 bg-[#8ee6a8]/[.07] px-3 py-1.5 sm:flex">
-            <span className="live-dot h-1.5 w-1.5 rounded-full bg-[#8ee6a8]" />
-            <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#a8e7b8]">{t.live}</span>
+          <div className="hidden items-center gap-2 rounded-full border border-accent/15 bg-accent/[.07] px-3 py-1.5 sm:flex">
+            <span className="live-dot h-1.5 w-1.5 rounded-full bg-accent" />
+            <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-accent-soft">{t.live}</span>
           </div>
           <button
             aria-label={t.refresh}
             onClick={() => void loadEvents()}
-            className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[.04] text-[#9caf9f] transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-safe:active:scale-95"
+            className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-fill text-ink-muted transition-all duration-200 hover:border-line-strong hover:bg-fill-strong hover:text-ink motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-safe:active:scale-95"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+          </button>
+          <button
+            aria-label={themeLabel}
+            title={themeLabel}
+            onClick={switchTheme}
+            className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-fill text-ink-muted transition-all duration-200 hover:border-line-strong hover:bg-fill-strong hover:text-ink motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-safe:active:scale-95"
+          >
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <div ref={languageMenuRef} className="relative hidden sm:block">
             <button
@@ -160,7 +201,7 @@ export default function DashboardPage() {
               aria-haspopup="listbox"
               aria-expanded={isLanguageMenuOpen}
               onClick={() => setIsLanguageMenuOpen((open) => !open)}
-              className="flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 text-xs font-semibold text-[#c5d1cb] transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0"
+              className="flex h-9 items-center gap-2 rounded-xl border border-line bg-fill px-3 text-xs font-semibold text-ink-soft transition-all duration-200 hover:border-line-strong hover:bg-fill-strong hover:text-ink motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0"
             >
               {languages.find((item) => item.code === language)?.label}
               <ChevronDown
@@ -173,7 +214,7 @@ export default function DashboardPage() {
               <ul
                 role="listbox"
                 aria-label={t.language}
-                className="panel-in absolute right-0 top-11 z-30 w-36 rounded-xl border border-white/10 bg-[#0c1713]/95 p-1 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-xl"
+                className="panel-in absolute right-0 top-11 z-30 w-36 rounded-xl border border-line bg-elevated/95 p-1 shadow-[var(--shadow-pop)] backdrop-blur-xl"
               >
                 {languages.map((item) => (
                   <li key={item.code} role="option" aria-selected={item.code === language}>
@@ -182,12 +223,12 @@ export default function DashboardPage() {
                         setLanguage(item.code);
                         setIsLanguageMenuOpen(false);
                       }}
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-all duration-200 hover:bg-white/[.08] motion-safe:hover:translate-x-0.5 ${
-                        item.code === language ? "text-[#a9f4bd]" : "text-[#c5d1cb]"
+                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-all duration-200 hover:bg-fill-strong motion-safe:hover:translate-x-0.5 ${
+                        item.code === language ? "text-accent-soft" : "text-ink-soft"
                       }`}
                     >
                       {item.name}
-                      <span className="text-[10px] font-extrabold tracking-wider text-[#71867b]">{item.label}</span>
+                      <span className="text-[10px] font-extrabold tracking-wider text-ink-faint">{item.label}</span>
                     </button>
                   </li>
                 ))}
@@ -198,14 +239,14 @@ export default function DashboardPage() {
       </header>
 
       <div className="grid h-[calc(100dvh-72px)] min-h-[588px] grid-rows-[minmax(0,1fr)] grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className="relative z-10 hidden min-h-0 flex-col border-r border-white/10 bg-[#0b1512] lg:flex">
-          <div className="border-b border-white/10 px-5 py-5">
+        <aside className="relative z-10 hidden min-h-0 flex-col border-r border-line bg-panel lg:flex">
+          <div className="border-b border-line px-5 py-5">
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">{t.overview}</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-ink-faint">{t.overview}</p>
                 <p className="mt-1 text-2xl font-extrabold tracking-[-0.045em]">{t.activeEvents}</p>
               </div>
-              <span className="rounded-lg bg-[#8ee6a8]/10 px-2.5 py-1 text-sm font-extrabold text-[#9ef0b4]">{filteredEvents.length}</span>
+              <span className="rounded-lg bg-accent/10 px-2.5 py-1 text-sm font-extrabold text-accent-soft">{filteredEvents.length}</span>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -217,8 +258,8 @@ export default function DashboardPage() {
                   <button
                     key={key}
                     onClick={() => toggleCategory(key)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold transition-all duration-200 hover:border-white/20 hover:bg-white/[.08] hover:text-[#dce7e1] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 ${
-                      active ? "border-white/10 bg-white/[.06] text-[#dce7e1]" : "border-transparent bg-black/10 text-[#566a60]"
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold transition-all duration-200 hover:border-line-strong hover:bg-fill-strong hover:text-ink-soft motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 ${
+                      active ? "border-line bg-fill-strong text-ink-soft" : "border-transparent bg-sunken text-ink-ghost"
                     }`}
                   >
                     <Icon size={15} style={{ color: active ? meta.color : "currentColor" }} />
@@ -230,8 +271,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center justify-between px-5 pb-3 pt-4">
-            <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#71867b]">{t.mostRecent}</p>
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${usingPreview ? "text-[#f0a94b]" : "text-[#91dca6]"}`}>
+            <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-ink-faint">{t.mostRecent}</p>
+            <span className={`text-[9px] font-bold uppercase tracking-wider ${usingPreview ? "text-warn" : "text-accent-soft"}`}>
               {usingPreview ? t.previewData : t.officialSources}
             </span>
           </div>
@@ -247,20 +288,20 @@ export default function DashboardPage() {
                   onClick={() => setSelected(event)}
                   className={`mb-1.5 w-full rounded-2xl border p-3.5 text-left transition-all duration-200 motion-safe:hover:translate-x-1 ${
                     isSelected
-                      ? "border-[#8ee6a8]/25 bg-[#8ee6a8]/[.075] shadow-[inset_3px_0_0_#8ee6a8]"
-                      : "border-transparent hover:border-white/10 hover:bg-white/[.035]"
+                      ? "border-accent/25 bg-accent/[.075] shadow-[inset_3px_0_0_var(--accent)]"
+                      : "border-transparent hover:border-line hover:bg-fill"
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl" style={{ color: meta.color, background: `${meta.color}18` }}>
+                    <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl" style={{ color: meta.color, background: meta.tint }}>
                       <Icon size={16} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[12px] font-extrabold text-[#e1eae5]">{event.title}</p>
-                        <span className="shrink-0 text-[9px] font-semibold text-[#60736a]">{relativeTime(event.occurredAt, t)}</span>
+                        <p className="truncate text-[12px] font-extrabold text-ink-soft">{event.title}</p>
+                        <span className="shrink-0 text-[9px] font-semibold text-ink-ghost">{relativeTime(event.occurredAt, t)}</span>
                       </div>
-                      <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-[#788d82]">
+                      <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-ink-muted">
                         <MapPin size={10} /> {event.location}
                       </p>
                     </div>
@@ -270,70 +311,71 @@ export default function DashboardPage() {
             })}
           </div>
 
-          <div className="border-t border-white/10 px-5 py-3.5 text-[9px] leading-relaxed text-[#5e7167]">
+          <div className="border-t border-line px-5 py-3.5 text-[9px] leading-relaxed text-ink-ghost">
             {t.disclaimer}
           </div>
         </aside>
 
         <section className="relative min-h-0 overflow-hidden">
-          <AlertMap events={filteredEvents} selectedId={selected?.id} language={language} onSelect={handleSelect} />
+          <AlertMap events={filteredEvents} selectedId={selected?.id} language={language} theme={theme} onSelect={handleSelect} />
 
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#07100d]/65 to-transparent" />
+          <div className="map-scrim pointer-events-none absolute inset-x-0 top-0 h-28" />
 
           <div className="absolute left-4 top-4 flex gap-2 lg:left-6 lg:top-5">
-            <div className="rounded-xl border border-white/10 bg-[#0c1713]/90 px-3.5 py-2.5 shadow-2xl backdrop-blur-xl">
-              <p className="text-[9px] font-bold uppercase tracking-[.15em] text-[#71867b]">{t.monitoredWindow}</p>
-              <p className="mt-0.5 flex items-center gap-2 text-xs font-extrabold"><Clock3 size={13} className="text-[#8ee6a8]" /> {t.last48h}</p>
+            <div className="rounded-xl border border-line bg-elevated/90 px-3.5 py-2.5 shadow-[var(--shadow-pop)] backdrop-blur-xl">
+              <p className="text-[9px] font-bold uppercase tracking-[.15em] text-ink-faint">{t.coverage}</p>
+              <p className="mt-0.5 flex items-center gap-2 text-xs font-extrabold"><Clock3 size={13} className="text-accent" /> {t.coverageDetail}</p>
             </div>
           </div>
 
           {selected && (
-            <div className="panel-in absolute bottom-4 left-4 right-4 rounded-[22px] border border-white/10 bg-[#0c1713]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,.5)] backdrop-blur-2xl sm:left-auto sm:right-6 sm:w-[380px] sm:p-5">
+            <div className="panel-in absolute bottom-4 left-4 right-4 rounded-[22px] border border-line bg-elevated/95 p-4 shadow-[var(--shadow-panel)] backdrop-blur-2xl sm:left-auto sm:right-6 sm:w-[380px] sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {(() => {
-                    const Icon = categoryMeta[selected.category].icon;
+                    const meta = categoryMeta[selected.category];
+                    const Icon = meta.icon;
                     return (
-                      <span className="grid h-10 w-10 place-items-center rounded-2xl" style={{ color: categoryMeta[selected.category].color, background: `${categoryMeta[selected.category].color}19` }}>
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl" style={{ color: meta.color, background: meta.tint }}>
                         <Icon size={19} />
                       </span>
                     );
                   })()}
                   <div>
-                    <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#71867b]">{t.categoriesSingular[selected.category]}</p>
+                    <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-ink-faint">{t.categoriesSingular[selected.category]}</p>
                     <h2 className="mt-0.5 text-sm font-extrabold tracking-[-0.02em]">{selected.title}</h2>
                   </div>
                 </div>
                 <button
                   aria-label={t.closeDetails}
                   onClick={() => setSelected(null)}
-                  className="grid h-7 w-7 place-items-center rounded-lg text-[#6c8176] transition-all duration-200 hover:bg-white/[.08] hover:text-[#e9f1ec] motion-safe:hover:rotate-90 motion-safe:active:scale-90"
+                  className="grid h-7 w-7 place-items-center rounded-lg text-ink-ghost transition-all duration-200 hover:bg-fill-strong hover:text-ink motion-safe:hover:rotate-90 motion-safe:active:scale-90"
                 >
                   <X size={15} />
                 </button>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 text-[11px] text-[#8ca096]">
-                <MapPin size={13} className="text-[#8ee6a8]" /> {selected.location}
+              <div className="mt-4 flex items-center gap-2 text-[11px] text-ink-muted">
+                <MapPin size={13} className="text-accent" /> {selected.location}
               </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-[#91a39a]">{selected.description}</p>
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">{selected.description}</p>
 
-              <div className="mt-4 grid grid-cols-3 gap-2 border-y border-white/10 py-3">
+              <div className="mt-4 grid grid-cols-3 gap-2 border-y border-line py-3">
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.intensity}</p>
-                  <p className="mt-1 text-xs font-extrabold capitalize text-[#dce7e1]">{selected.magnitude ? `M ${selected.magnitude}` : t.severity[selected.severity]}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-ink-ghost">{t.intensity}</p>
+                  <p className="mt-1 text-xs font-extrabold capitalize text-ink-soft">{selected.magnitude ? `M ${selected.magnitude}` : t.severity[selected.severity]}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.updated}</p>
-                  <p className="mt-1 text-xs font-extrabold text-[#dce7e1]">{relativeTime(selected.occurredAt, t)}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-ink-ghost">{t.updated}</p>
+                  <p className="mt-1 text-xs font-extrabold text-ink-soft">{relativeTime(selected.occurredAt, t)}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold uppercase tracking-wider text-[#5f7369]">{t.source}</p>
-                  <p className="mt-1 text-xs font-extrabold text-[#dce7e1]">{selected.source}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-wider text-ink-ghost">{t.source}</p>
+                  <p className="mt-1 text-xs font-extrabold text-ink-soft">{selected.source}</p>
                 </div>
               </div>
 
-              <a href={selected.sourceUrl} target="_blank" rel="noreferrer" className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-[#a9f4bd] text-[11px] font-extrabold text-[#0a1711] transition-all duration-200 hover:bg-[#c3ffd1] hover:shadow-[0_10px_26px_rgba(169,244,189,.28)] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0">
+              <a href={selected.sourceUrl} target="_blank" rel="noreferrer" className="mt-4 flex h-10 items-center justify-center gap-2 rounded-xl bg-accent-solid text-[11px] font-extrabold text-accent-on transition-all duration-200 hover:bg-accent-solid-hover hover:shadow-[var(--shadow-glow)] motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0">
                 {t.openOfficialSource} <ExternalLink size={13} />
               </a>
             </div>

@@ -3,7 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Roda antes da primeira pintura: sem isso o tema claro abriria escuro por
+      // um quadro, ate o React montar e aplicar o data-theme.
+      (function () {
+        try {
+          var stored = localStorage.getItem('terra-alerta:theme');
+          document.documentElement.dataset.theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+        } catch (error) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
     <title>TerraAlerta</title>
     <meta
       name="description"

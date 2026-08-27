@@ -12,6 +12,20 @@ public sealed class EventService(
     ILogger<EventService> logger) : IEventService
 {
     private const string CacheKey = "normalized-events";
+    private const int DefaultEonetLimitPerCategory = 30;
+
+    /* A EONET responde com os eventos abertos ordenados do mais recente para o
+       mais antigo, e incendios florestais sao mais de 99% do volume. Numa
+       consulta unica os vulcoes so apareceriam depois de algumas centenas de
+       incendios, o que deixava o filtro de vulcoes sempre vazio: por isso
+       pedimos uma pagina por categoria. O mapa tambem e a fonte da traducao
+       para as categorias internas, para os dois nao saírem de sincronia. */
+    private static readonly Dictionary<string, string> EonetCategories = new()
+    {
+        ["wildfires"] = "wildfire",
+        ["severeStorms"] = "storm",
+        ["volcanoes"] = "volcano"
+    };
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -56,20 +70,45 @@ public sealed class EventService(
 
     private async Task<IReadOnlyCollection<GeoEvent>> LoadEonetEventsAsync(CancellationToken cancellationToken)
     {
-        var url = configuration["ExternalApis:Eonet"]
+        var baseUrl = configuration["ExternalApis:Eonet"]
             ?? throw new InvalidOperationException("A URL da NASA EONET não foi configurada.");
 
-        var response = await httpClient.GetFromJsonAsync<EonetResponse>(url, _jsonOptions, cancellationToken);
-        if (response is null)
+        var limit = configuration.GetValue<int?>("ExternalApis:EonetLimitPerCategory")
+            ?? DefaultEonetLimitPerCategory;
+
+        var requests = EonetCategories.Keys
+            .Select(category => LoadEonetCategoryAsync(baseUrl, category, limit, cancellationToken))
+            .ToArray();
+
+        await Task.WhenAll(requests.Select(ObserveFailureAsync));
+
+        // Uma categoria fora do ar nao derruba as outras; so quando nenhuma
+        // responde e que a EONET conta como indisponivel para o chamador.
+        if (requests.All(request => !request.IsCompletedSuccessfully))
         {
-            return [];
+            throw new HttpRequestException("Nenhuma categoria da NASA EONET respondeu com sucesso.");
         }
 
-        return response.Events
+        return requests
+            .Where(request => request.IsCompletedSuccessfully)
+            .SelectMany(request => request.Result)
             .Select(MapEonetEvent)
             .Where(item => item is not null)
             .Cast<GeoEvent>()
+            // Um evento com mais de uma categoria volta em mais de uma consulta.
+            .DistinctBy(item => item.Id)
             .ToArray();
+    }
+
+    private async Task<IReadOnlyCollection<EonetEvent>> LoadEonetCategoryAsync(
+        string baseUrl,
+        string category,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{baseUrl}?status=open&category={category}&limit={limit}";
+        var response = await httpClient.GetFromJsonAsync<EonetResponse>(url, _jsonOptions, cancellationToken);
+        return response?.Events ?? [];
     }
 
     private async Task<IReadOnlyCollection<GeoEvent>> LoadUsgsEventsAsync(CancellationToken cancellationToken)
@@ -84,7 +123,8 @@ public sealed class EventService(
         }
 
         return response.Features
-            .Where(feature => feature.Geometry.Coordinates.Length >= 2)
+            .Where(feature => feature.Geometry.Coordinates.Length >= 2
+                && IsOnEarth(feature.Geometry.Coordinates[0], feature.Geometry.Coordinates[1]))
             .Select(feature => new GeoEvent
             {
                 Id = $"usgs-{feature.Id}",
@@ -109,13 +149,10 @@ public sealed class EventService(
 
     private static GeoEvent? MapEonetEvent(EonetEvent source)
     {
-        var category = source.Categories.FirstOrDefault()?.Id switch
-        {
-            "wildfires" => "wildfire",
-            "severeStorms" => "storm",
-            "volcanoes" => "volcano",
-            _ => null
-        };
+        var sourceCategory = source.Categories.FirstOrDefault()?.Id;
+        var category = sourceCategory is not null && EonetCategories.TryGetValue(sourceCategory, out var mapped)
+            ? mapped
+            : null;
 
         var geometry = source.Geometry.LastOrDefault();
         var coordinates = geometry is null ? null : ExtractCoordinates(geometry.Coordinates);
@@ -144,6 +181,15 @@ public sealed class EventService(
         };
     }
 
+    /* A NASA EONET publica alguns registros com coordenadas fora do globo — havia
+       um incêndio com latitude 200 e outro com longitude 189. Servi-los faz o
+       MapLibre lançar no cliente, e uma única ocorrência derrubava a página. */
+    private static bool IsOnEarth(double longitude, double latitude) =>
+        double.IsFinite(longitude)
+        && double.IsFinite(latitude)
+        && longitude is >= -180 and <= 180
+        && latitude is >= -90 and <= 90;
+
     private static (double Longitude, double Latitude)? ExtractCoordinates(JsonElement element)
     {
         if (element.ValueKind != JsonValueKind.Array || element.GetArrayLength() < 2)
@@ -156,7 +202,9 @@ public sealed class EventService(
 
         if (first.ValueKind == JsonValueKind.Number && second.ValueKind == JsonValueKind.Number)
         {
-            return (first.GetDouble(), second.GetDouble());
+            var longitude = first.GetDouble();
+            var latitude = second.GetDouble();
+            return IsOnEarth(longitude, latitude) ? (longitude, latitude) : null;
         }
 
         if (first.ValueKind == JsonValueKind.Array)
