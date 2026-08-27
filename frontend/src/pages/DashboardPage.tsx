@@ -153,7 +153,11 @@ export default function DashboardPage() {
   return (
     <main className="h-dvh min-h-[660px] overflow-hidden bg-canvas text-ink">
       <header className="relative z-20 flex h-[72px] items-center border-b border-line bg-panel/95 px-4 backdrop-blur-xl md:px-6">
-        <div className="flex min-w-[228px] items-center gap-3">
+        {/* A largura minima so vale a partir de lg, onde a busca aparece e as
+            pontas precisam se equilibrar. Abaixo disso ela empurrava os botoes
+            para fora de telas estreitas, e o overflow-hidden do main os tornava
+            inalcancaveis. */}
+        <div className="flex min-w-0 flex-1 items-center gap-3 lg:min-w-[228px]">
           <div className="relative grid h-9 w-9 place-items-center rounded-xl border border-accent/30 bg-accent/10">
             <Globe2 size={20} strokeWidth={1.8} className="text-accent-soft" />
             <span className="absolute right-[7px] top-[7px] h-1.5 w-1.5 rounded-full bg-alert" />
@@ -164,7 +168,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <label className="mx-auto hidden h-10 w-full max-w-[470px] items-center gap-2.5 rounded-xl border border-line bg-fill px-3.5 focus-within:border-accent/50 lg:flex">
+        {/* Os blocos das pontas dividem o espaco restante em partes iguais, entao
+            a busca fica no centro real do cabecalho. Com margens automaticas nos
+            tres, o espaco livre era repartido entre elas e a busca caia a esquerda. */}
+        <label className="hidden h-10 w-full max-w-[470px] shrink-0 items-center gap-2.5 rounded-xl border border-line bg-fill px-3.5 focus-within:border-accent/50 lg:flex">
           <Search size={16} className="text-ink-ghost" />
           <input
             value={query}
@@ -172,10 +179,9 @@ export default function DashboardPage() {
             placeholder={t.searchPlaceholder}
             className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-ghost"
           />
-          <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-ink-ghost">&#8984; K</span>
         </label>
 
-        <div className="ml-auto flex min-w-[228px] items-center justify-end gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3 lg:min-w-[228px]">
           <div className="hidden items-center gap-2 rounded-full border border-accent/15 bg-accent/[.07] px-3 py-1.5 sm:flex">
             <span className="live-dot h-1.5 w-1.5 rounded-full bg-accent" />
             <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-accent-soft">{t.live}</span>
